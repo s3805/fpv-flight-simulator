@@ -1,0 +1,11 @@
+# Large media exports & scratch files
+*.mp4
+*.mov
+*.webm
+
+# Python & OS artifacts
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+node_modules/

@@ -1,0 +1,997 @@
+/* AeroVeloce FPV — Tactical Flight Deck Design System */
+:root {
+  --bg-page: #0d1117;
+  --bg-panel: rgba(17, 23, 30, 0.84);
+  --bg-panel-solid: #131921;
+  --bg-control: rgba(255, 255, 255, 0.06);
+  --bg-control-hover: rgba(255, 255, 255, 0.12);
+  --border-subtle: rgba(255, 255, 255, 0.11);
+  --border-strong: rgba(255, 255, 255, 0.22);
+  --text-primary: #edf2f7;
+  --text-secondary: #9aa7b6;
+  --text-muted: #687686;
+  --accent-amber: #f59e0b;
+  --accent-amber-fg: #11151c;
+  --accent-emerald: #10b981;
+  --accent-cyan: #22d3ee;
+  --accent-danger: #ef4444;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.4;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.app-shell {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Viewport & Canvases */
+.viewport-stage {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0b1017;
+}
+
+#gl-canvas,
+#hud-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#hud-canvas {
+  pointer-events: none;
+}
+
+/* Top Telemetry & Control Bar */
+.top-deck {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--bg-panel);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  flex-wrap: wrap;
+}
+
+.brand-cluster {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  display: grid;
+  place-items: center;
+  color: var(--accent-amber);
+  flex-shrink: 0;
+}
+
+.brand-title {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.brand-subtitle {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+.control-cluster {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Segmented & Action Buttons */
+.seg-group {
+  display: inline-flex;
+  background: rgba(0, 0, 0, 0.28);
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+
+.seg-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
+}
+
+.seg-btn:hover {
+  color: var(--text-primary);
+}
+
+.seg-btn.is-active {
+  background: var(--accent-amber);
+  color: var(--accent-amber-fg);
+}
+
+.deck-btn {
+  appearance: none;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-control);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 11px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  white-space: nowrap;
+}
+
+.deck-btn:hover {
+  background: var(--bg-control-hover);
+  border-color: var(--border-strong);
+}
+
+.deck-btn:active {
+  transform: translateY(1px);
+}
+
+.deck-btn.is-armed {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: rgba(16, 185, 129, 0.5);
+  color: #34d399;
+}
+
+.deck-btn.is-disarmed {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #fca5a5;
+}
+
+.deck-btn.is-toggled {
+  background: rgba(34, 211, 238, 0.14);
+  border-color: rgba(34, 211, 238, 0.45);
+  color: var(--accent-cyan);
+}
+
+.deck-select {
+  appearance: none;
+  background: var(--bg-control);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 24px 6px 10px;
+  cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-secondary) 50%),
+    linear-gradient(135deg, var(--text-secondary) 50%, transparent 50%);
+  background-position: calc(100% - 13px) 50%, calc(100% - 8px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.deck-select option {
+  background: var(--bg-panel-solid);
+  color: var(--text-primary);
+}
+
+/* Side Tuning Drawer */
+.side-drawer {
+  position: absolute;
+  top: 52px;
+  right: 12px;
+  z-index: 25;
+  width: 300px;
+  max-height: calc(100vh - 76px);
+  overflow-y: auto;
+  background: var(--bg-panel);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.side-drawer.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(12px);
+}
+
+/* Left GCS 3D Waypoint Mission Planner Panel */
+.gcs-panel {
+  position: absolute;
+  top: 52px;
+  left: 12px;
+  z-index: 24;
+  width: 320px;
+  max-height: calc(100vh - 76px);
+  overflow-y: auto;
+  background: var(--bg-panel);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.gcs-panel.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-12px);
+}
+
+.gcs-map-canvas {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  cursor: crosshair;
+  display: block;
+}
+
+.gcs-profile-canvas {
+  width: 100%;
+  height: 62px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  display: block;
+}
+
+.gcs-btn-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.gcs-btn-row .deck-btn {
+  flex: 1;
+  justify-content: center;
+}
+
+.gcs-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.drawer-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.param-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.param-label-line {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.param-val {
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.param-slider {
+  width: 100%;
+  accent-color: var(--accent-amber);
+  cursor: pointer;
+}
+
+.shortcut-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.kbd-tag {
+  display: inline-block;
+  padding: 1px 5px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.09);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  color: var(--text-primary);
+}
+
+/* Minimal Top-Left Brand & Controller Fold Pill */
+.tx-top-pill {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  z-index: 26;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px 5px 6px;
+  background: rgba(15, 20, 28, 0.78);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.pill-title {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-primary);
+}
+
+.pill-btn {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.pill-btn:hover {
+  background: rgba(245, 158, 11, 0.22);
+  color: #fef3c7;
+  border-color: rgba(245, 158, 11, 0.45);
+}
+
+.pill-btn.is-accent {
+  background: rgba(16, 185, 129, 0.22);
+  color: #6ee7b7;
+  border-color: rgba(16, 185, 129, 0.48);
+}
+
+.pill-btn.is-cyan {
+  background: rgba(34, 211, 238, 0.20);
+  color: #67e8f9;
+  border-color: rgba(34, 211, 238, 0.45);
+}
+
+/* Realistic Hardware RC Radio Transmitter Console (AeroVeloce TX-16 Pro) */
+.rc-controller {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  z-index: 22;
+  width: min(740px, calc(100vw - 20px));
+  padding: 8px 14px 10px;
+  border-radius: 22px 22px 16px 16px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.07), transparent 60%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.018) 0px, rgba(255, 255, 255, 0.018) 2px, transparent 2px, transparent 5px),
+    linear-gradient(180deg, #252c36 0%, #171c24 55%, #11151b 100%);
+  border: 1.5px solid rgba(148, 163, 184, 0.28);
+  box-shadow:
+    0 14px 36px rgba(0, 0, 0, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -3px 8px rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  transition: transform 0.22s ease, opacity 0.2s ease;
+}
+
+.rc-controller.is-hidden {
+  transform: translate(-50%, 115%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Top Shoulder Switch & Rotary Knob Bank */
+.tx-shoulder-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 12px;
+  background: rgba(9, 12, 17, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+.tx-bank {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tx-center-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.tx-antenna-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #94a3b8, #334155);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.7);
+}
+
+/* Physical Metal Toggle Switch (拨杆) */
+.tx-switch {
+  appearance: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(0, 0, 0, 0.25));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 3px 6px 4px;
+  min-width: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  color: var(--text-primary);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.tx-switch:hover {
+  border-color: rgba(245, 158, 11, 0.45);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.tx-sw-id {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  color: #94a3b8;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1;
+}
+
+.tx-led {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #334155;
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.6);
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tx-led.is-green { background: #10b981; box-shadow: 0 0 6px #10b981; }
+.tx-led.is-red   { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
+.tx-led.is-amber { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
+.tx-led.is-cyan  { background: #22d3ee; box-shadow: 0 0 6px #22d3ee; }
+
+.tx-sw-socket {
+  position: relative;
+  width: 18px;
+  height: 24px;
+  border-radius: 9px;
+  background: radial-gradient(circle at 50% 50%, #0b0e13 45%, #334155 100%);
+  border: 1.5px solid #64748b;
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.85), 0 1px 0 rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tx-sw-bat {
+  width: 8px;
+  height: 18px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #94a3b8 0%, #f1f5f9 45%, #64748b 100%);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.75);
+  transition: transform 0.14s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.tx-switch[data-pos="0"] .tx-sw-bat { transform: translateY(-5px) scaleY(1.04); }
+.tx-switch[data-pos="1"] .tx-sw-bat { transform: translateY(0px) scaleY(0.82); }
+.tx-switch[data-pos="2"] .tx-sw-bat { transform: translateY(5px) scaleY(1.04); }
+
+.tx-sw-val {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  color: #e2e8f0;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+/* Detented Knurled Rotary Knob (旋钮) */
+.tx-knob {
+  appearance: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(0, 0, 0, 0.25));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 3px 7px 4px;
+  min-width: 58px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  color: var(--text-primary);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.tx-knob:hover {
+  border-color: rgba(34, 211, 238, 0.5);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.tx-knob-ring {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  padding: 2px;
+  background: conic-gradient(from 210deg, #475569 0deg 240deg, transparent 240deg 360deg);
+  display: grid;
+  place-items: center;
+}
+
+.tx-knob-dial {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #64748b, #1e293b 70%, #0f172a 100%);
+  border: 1.5px dashed rgba(203, 213, 225, 0.5);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.8), inset 0 1px 1px rgba(255, 255, 255, 0.3);
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.tx-knob-notch {
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  width: 2.5px;
+  height: 7px;
+  transform: translateX(-50%);
+  border-radius: 2px;
+  background: #f59e0b;
+  box-shadow: 0 0 5px #f59e0b;
+}
+
+.tx-knob-notch.is-cyan {
+  background: #22d3ee;
+  box-shadow: 0 0 5px #22d3ee;
+}
+
+/* Main Lower Deck: Left Gimbal | Center LCD | Right Gimbal */
+.tx-main-deck {
+  display: grid;
+  grid-template-columns: 132px 1fr 132px;
+  align-items: center;
+  gap: 12px;
+}
+
+.tx-gimbal-pod {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.tx-gimbal-bezel {
+  padding: 5px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #475569, #1e293b 55%, #0f172a);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow:
+    inset 0 2px 4px rgba(255, 255, 255, 0.14),
+    0 6px 14px rgba(0, 0, 0, 0.55);
+}
+
+.stick-well {
+  position: relative;
+  width: 112px;
+  height: 112px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, #0a0e14 55%, #161d27 100%);
+  border: 1.5px solid rgba(148, 163, 184, 0.25);
+  box-shadow: inset 0 4px 14px rgba(0, 0, 0, 0.9);
+  touch-action: none;
+  cursor: grab;
+}
+
+.stick-well:active {
+  cursor: grabbing;
+  border-color: rgba(245, 158, 11, 0.7);
+}
+
+.stick-crosshair-h,
+.stick-crosshair-v {
+  position: absolute;
+  background: rgba(148, 163, 184, 0.16);
+  pointer-events: none;
+}
+
+.stick-crosshair-h {
+  left: 12px;
+  right: 12px;
+  top: 50%;
+  height: 1px;
+}
+
+.stick-crosshair-v {
+  top: 12px;
+  bottom: 12px;
+  left: 50%;
+  width: 1px;
+}
+
+.stick-puck {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fcd34d, #d97706 65%, #78350f 100%);
+  border: 2px dashed rgba(255, 255, 255, 0.75);
+  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.75), inset 0 2px 3px rgba(255, 255, 255, 0.4);
+  pointer-events: none;
+}
+
+.tx-gimbal-lbl {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+/* Center Backlit LCD Telemetry Screen (液晶屏幕) */
+.tx-center-console {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tx-lcd-bezel {
+  padding: 5px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #090c10, #1a212b);
+  border: 1.5px solid rgba(148, 163, 184, 0.26);
+  box-shadow: inset 0 3px 10px rgba(0, 0, 0, 0.9);
+}
+
+.tx-lcd-screen {
+  position: relative;
+  border-radius: 6px;
+  padding: 6px 8px;
+  background:
+    repeating-linear-gradient(0deg, rgba(16, 185, 129, 0.045) 0px, rgba(16, 185, 129, 0.045) 1px, transparent 1px, transparent 3px),
+    linear-gradient(180deg, #071b1d 0%, #051316 100%);
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  box-shadow: inset 0 0 18px rgba(16, 185, 129, 0.18);
+  font-family: var(--font-mono);
+  color: #a7f3d0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.lcd-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(34, 211, 238, 0.22);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.lcd-model {
+  color: #38bdf8;
+  letter-spacing: 0.03em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lcd-badge {
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(34, 211, 238, 0.16);
+  color: #67e8f9;
+  font-size: 9px;
+}
+
+.lcd-badge.is-armed {
+  background: rgba(16, 185, 129, 0.28);
+  color: #34d399;
+}
+
+.lcd-badge.is-disarmed {
+  background: rgba(239, 68, 68, 0.28);
+  color: #fca5a5;
+}
+
+.lcd-batt {
+  color: #fbbf24;
+}
+
+.lcd-rssi {
+  color: #34d399;
+}
+
+.lcd-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px 8px;
+}
+
+.lcd-cell {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  background: rgba(34, 211, 238, 0.06);
+  border: 1px solid rgba(34, 211, 238, 0.14);
+  border-radius: 4px;
+  padding: 2px 5px;
+}
+
+.lcd-k {
+  font-size: 9px;
+  color: #5eead4;
+  opacity: 0.8;
+}
+
+.lcd-v {
+  font-size: 11px;
+  font-weight: 700;
+  color: #ecfeff;
+}
+
+.lcd-v.is-warn {
+  color: #fb7185;
+}
+
+.lcd-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 3px;
+  border-top: 1px solid rgba(34, 211, 238, 0.18);
+}
+
+.lcd-ch-bars {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.lcd-ch {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex: 1;
+  font-size: 9px;
+  color: #67e8f9;
+}
+
+.lcd-bar {
+  position: relative;
+  flex: 1;
+  height: 5px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(34, 211, 238, 0.25);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.lcd-bar i {
+  display: block;
+  height: 100%;
+  width: 50%;
+  background: linear-gradient(90deg, #10b981, #22d3ee);
+}
+
+.lcd-att {
+  font-size: 10px;
+  color: #fbbf24;
+  white-space: nowrap;
+}
+
+/* Tactile Metallic Push Buttons below LCD */
+.tx-btn-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.tx-push-btn {
+  appearance: none;
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  border-radius: 6px;
+  padding: 4px 8px;
+  background: linear-gradient(180deg, #334155 0%, #1e293b 100%);
+  color: #e2e8f0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  transition: transform 0.08s ease, border-color 0.15s ease;
+}
+
+.tx-push-btn i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 4px rgba(245, 158, 11, 0.7);
+}
+
+.tx-push-btn:hover {
+  border-color: rgba(245, 158, 11, 0.6);
+}
+
+.tx-push-btn:active {
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.7);
+}
+
+/* Center Toast Banner (Gate Splits / Crash / Arm Prompt) */
+.flight-banner {
+  position: absolute;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 25;
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(15, 21, 29, 0.84);
+  border: 1px solid var(--border-subtle);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-primary);
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.flight-banner.is-hidden {
+  opacity: 0;
+}
+
+@media (max-width: 768px) {
+  .rc-controller {
+    width: calc(100vw - 12px);
+    padding: 6px 8px 8px;
+    bottom: 6px;
+  }
+
+  .tx-center-badge {
+    display: none;
+  }
+
+  .tx-main-deck {
+    grid-template-columns: 96px 1fr 96px;
+    gap: 6px;
+  }
+
+  .stick-well {
+    width: 84px;
+    height: 84px;
+  }
+
+  .stick-puck {
+    width: 28px;
+    height: 28px;
+  }
+
+  .tx-gimbal-lbl {
+    font-size: 9px;
+  }
+
+  .side-drawer {
+    width: calc(100vw - 16px);
+    right: 8px;
+    top: 52px;
+  }
+}

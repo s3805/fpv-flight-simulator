@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>AeroVeloce FPV PRO — 游戏级 480Hz 穿越机飞行模拟器与三维地面站</title>
+  <meta name="description" content="游戏级 480Hz 穿越机 3D WebGL 飞行模拟与三维航线规划地面站（GCS），支持 24/32-bit 深度缓冲、2048² 实时阴影、HDR 泛光、全息幽灵机竞速与仿真遥控器。" />
+  <link rel="stylesheet" href="./index.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <!-- Minimal Top-Left Brand & Controller Fold Pill (keeps full sky viewport unobstructed) -->
+    <header class="tx-top-pill" aria-label="仿真器状态栏">
+      <div class="brand-mark" aria-hidden="true">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="6" cy="6" r="3"></circle>
+          <circle cx="18" cy="6" r="3"></circle>
+          <circle cx="6" cy="18" r="3"></circle>
+          <circle cx="18" cy="18" r="3"></circle>
+          <path d="M8.5 8.5l7 7M15.5 8.5l-7 7"></path>
+        </svg>
+      </div>
+      <span class="pill-title">AeroVeloce TX-16 PRO v3.0</span>
+      <button id="btn-weather" type="button" class="pill-btn" title="切换动态雨雪天气 (晴朗 / 暴雨湿滑镜面水洼+镜头雨滴 / 阿尔卑斯暴雪积雪，快捷键 E)">天气: 晴朗</button>
+      <button id="btn-cinema" type="button" class="pill-btn" title="一键切换 GoPro 实拍纯净电影模式 (隐藏HUD/门框/航线 + 180°运动模糊 + 穿云体积光，快捷键 C)">GoPro 电影: 关</button>
+      <button id="btn-quality" type="button" class="pill-btn is-accent" title="切换画质 (ULTRA: 双级联CSM软阴影 + 深度SSAO + 光线步进3D体积云 + 风吹植被)">画质: ULTRA</button>
+      <button id="btn-ghost" type="button" class="pill-btn is-cyan" title="开关全息幽灵机竞速对比 (快捷键 H)">幽灵机: 开</button>
+      <button id="btn-toggle-tx" type="button" class="pill-btn" title="展开或收起仿真遥控器">收起遥控器</button>
+    </header>
+
+    <!-- Left GCS 3D Waypoint Mission Planner Panel -->
+    <aside id="gcs-panel" class="gcs-panel" aria-label="三维航线规划地面站">
+      <div class="drawer-header">
+        <span class="drawer-title">GCS 三维航线规划地面站</span>
+        <button id="btn-close-gcs" type="button" class="deck-btn">收起</button>
+      </div>
+
+      <div class="gcs-btn-row">
+        <select id="select-mission" class="deck-select" style="flex:1" aria-label="预设航线任务">
+          <option value="bando_inspect">预设: 废弃厂房穿行巡检</option>
+          <option value="town_cruise">预设: 🏘 山谷小镇低空巡游</option>
+          <option value="tunnel_challenge">预设: ⛰ 山脊隧道极限穿越</option>
+          <option value="canyon_patrol">预设: 河谷远距高速巡航</option>
+          <option value="ridge_survey">预设: 全图高空三维测绘</option>
+        </select>
+        <button id="btn-load-mission" type="button" class="deck-btn" style="flex:0 0 auto">载入</button>
+      </div>
+
+      <canvas id="gcs-map" class="gcs-map-canvas" width="296" height="296"></canvas>
+      <canvas id="gcs-profile" class="gcs-profile-canvas" width="296" height="62"></canvas>
+
+      <div class="gcs-hint" id="gcs-wp-status">点击地图添加航点 · 拖动航点微调位置 (当前 6 航点)</div>
+
+      <div class="param-row">
+        <div class="param-label-line">
+          <label for="slider-wp-agl">选中/新增航点高度 (AGL)</label>
+          <span id="val-wp-agl" class="param-val">26 m</span>
+        </div>
+        <input id="slider-wp-agl" class="param-slider" type="range" min="5" max="150" step="1" value="26" />
+      </div>
+
+      <div class="param-row">
+        <div class="param-label-line">
+          <label for="slider-wp-speed">航段巡航速度 (Cruise)</label>
+          <span id="val-wp-speed" class="param-val">20 m/s</span>
+        </div>
+        <input id="slider-wp-speed" class="param-slider" type="range" min="6" max="38" step="1" value="20" />
+      </div>
+
+      <div class="gcs-btn-row">
+        <button id="btn-mission-start" type="button" class="deck-btn is-armed">开始自动航线</button>
+        <button id="btn-rth" type="button" class="deck-btn">一键返航 RTH</button>
+      </div>
+      <div class="gcs-btn-row">
+        <button id="btn-wp-del" type="button" class="deck-btn">删选中点</button>
+        <button id="btn-wp-clear" type="button" class="deck-btn">清空航线</button>
+      </div>
+    </aside>
+
+    <!-- Center Event Notification Banner -->
+    <div id="flight-banner" class="flight-banner is-hidden" role="status" aria-live="polite"></div>
+
+    <!-- Collapsible Betaflight Rates & Camera Tuning Drawer -->
+    <aside id="tuning-drawer" class="side-drawer is-hidden" aria-label="飞控参数与快捷键面板">
+      <div class="drawer-header">
+        <span class="drawer-title">480Hz 飞控 Rates 与画质调参</span>
+        <button id="btn-close-drawer" type="button" class="deck-btn">收起</button>
+      </div>
+
+      <div class="param-row">
+        <div class="param-label-line">
+          <label for="slider-tilt">FPV 镜头仰角 (Cam Uptilt)</label>
+          <span id="val-tilt" class="param-val">24°</span>
+        </div>
+        <input id="slider-tilt" class="param-slider" type="range" min="0" max="45" step="1" value="24" />
+      </div>
+
+      <div class="param-row">
+        <div class="param-label-line">
+          <label for="slider-fov">图传视场角 (FOV)</label>
+          <span id="val-fov" class="param-val">108°</span>
+        </div>
+        <input id="slider-fov" class="param-slider" type="range" min="85" max="125" step="1" value="108" />
+      </div>
+
+      <div class="param-row">
+        <div class="param-label-line">
+          <label for="slider-rate">最大角速度 (Max Rate)</label>
+          <span id="val-rate" class="param-val">620 °/s</span>
+        </div>
+        <input id="slider-rate" class="param-slider" type="range" min="240" max="900" step="10" value="620" />
+      </div>
+
+      <div class="param-row">
+        <div class="param-label-line">
+          <label for="slider-expo">SuperExpo 曲线柔和度</label>
+          <span id="val-expo" class="param-val">0.42</span>
+        </div>
+        <input id="slider-expo" class="param-slider" type="range" min="0" max="80" step="1" value="42" />
+      </div>
+
+      <div class="param-row">
+        <div class="param-label-line">
+          <label for="slider-wind">峡谷高空侧风 (Wind)</label>
+          <span id="val-wind" class="param-val">2.2 m/s</span>
+        </div>
+        <input id="slider-wind" class="param-slider" type="range" min="0" max="14" step="0.5" value="2.2" />
+      </div>
+
+      <div class="control-cluster">
+        <button id="btn-airmode" type="button" class="deck-btn is-toggled">AirMode: 开启</button>
+        <button id="btn-toggle-osd" type="button" class="deck-btn">DJI OSD: 开启</button>
+        <button id="btn-toggle-sticks" type="button" class="deck-btn">遥控器: 显示</button>
+        <button id="btn-recover" type="button" class="deck-btn">姿态回正 (T)</button>
+      </div>
+
+      <div class="shortcut-list">
+        <div><span class="kbd-tag">W</span> / <span class="kbd-tag">S</span> 升降油门</div>
+        <div><span class="kbd-tag">A</span> / <span class="kbd-tag">D</span> 偏航转向</div>
+        <div><span class="kbd-tag">↑</span> / <span class="kbd-tag">↓</span> 俯仰前进</div>
+        <div><span class="kbd-tag">←</span> / <span class="kbd-tag">→</span> 横滚侧飞</div>
+        <div><span class="kbd-tag">Space</span> 上锁/解锁</div>
+        <div><span class="kbd-tag">H</span> 全息幽灵机</div>
+        <div><span class="kbd-tag">V</span> FPV/跟拍/俯瞰</div>
+        <div><span class="kbd-tag">R</span> 起降坪复位</div>
+      </div>
+    </aside>
+
+    <!-- 3D WebGL Viewport + 2D Betaflight OSD Overlay -->
+    <section class="viewport-stage" aria-label="3D 飞行画面">
+      <canvas id="gl-canvas"></canvas>
+      <canvas id="hud-canvas"></canvas>
+    </section>
+
+    <!-- Realistic Hardware RC Radio Transmitter / Flight Controller -->
+    <section id="rc-controller" class="rc-controller" aria-label="仿真 FPV 遥控器">
+      <!-- Top Shoulder Bank: Physical Toggle Switches (拨杆) & Rotary Knobs (旋钮) -->
+      <div class="tx-shoulder-bar">
+        <div class="tx-bank">
+          <!-- SA: 2-Pos ARM Toggle Switch -->
+          <button id="sw-arm" type="button" class="tx-switch" data-pos="2" title="拨杆 SA: 解锁 / 上锁 (Space)">
+            <span class="tx-sw-id">SA <i class="tx-led is-green" id="led-arm"></i></span>
+            <span class="tx-sw-socket"><span class="tx-sw-bat"></span></span>
+            <span class="tx-sw-val" id="lbl-arm">ARMED</span>
+          </button>
+
+          <!-- SB: 3-Pos Flight Mode Toggle Switch -->
+          <button id="sw-mode" type="button" class="tx-switch" data-pos="0" title="拨杆 SB: 飞行模式 ANGLE / HORIZON / ACRO (M)">
+            <span class="tx-sw-id">SB <i class="tx-led is-amber" id="led-mode"></i></span>
+            <span class="tx-sw-socket"><span class="tx-sw-bat"></span></span>
+            <span class="tx-sw-val" id="lbl-mode">ANGLE</span>
+          </button>
+
+          <!-- SC: 2-Pos Altitude Hold Toggle Switch -->
+          <button id="sw-althold" type="button" class="tx-switch" data-pos="2" title="拨杆 SC: 气压定高开关">
+            <span class="tx-sw-id">SC <i class="tx-led is-cyan" id="led-althold"></i></span>
+            <span class="tx-sw-socket"><span class="tx-sw-bat"></span></span>
+            <span class="tx-sw-val" id="lbl-althold">ALT ON</span>
+          </button>
+
+          <!-- S1: Detented Rotary Knob for Drone Model Preset -->
+          <button id="knob-preset" type="button" class="tx-knob" data-step="0" title="旋钮 S1: 点击或滚轮切换机型预设">
+            <span class="tx-sw-id">S1 · 机型</span>
+            <span class="tx-knob-ring">
+              <span class="tx-knob-dial" id="dial-preset"><span class="tx-knob-notch"></span></span>
+            </span>
+            <span class="tx-sw-val" id="lbl-preset">5"花飞</span>
+          </button>
+        </div>
+
+        <div class="tx-center-badge">
+          <span class="tx-antenna-dot"></span>
+          <span>ELRS 500Hz · DJI O3 HD</span>
+          <span class="tx-antenna-dot"></span>
+        </div>
+
+        <div class="tx-bank">
+          <!-- S2: Detented Rotary Knob for Sky / Environment -->
+          <button id="knob-sky" type="button" class="tx-knob" data-step="0" title="旋钮 S2: 点击或滚轮切换天气环境">
+            <span class="tx-sw-id">S2 · 环境</span>
+            <span class="tx-knob-ring">
+              <span class="tx-knob-dial" id="dial-sky"><span class="tx-knob-notch is-cyan"></span></span>
+            </span>
+            <span class="tx-sw-val" id="lbl-sky">晴空</span>
+          </button>
+
+          <!-- SD: 3-Pos Camera View Toggle Switch -->
+          <button id="sw-cam" type="button" class="tx-switch" data-pos="0" title="拨杆 SD: 切换视角 FPV / 跟拍 / 俯瞰 (V)">
+            <span class="tx-sw-id">SD <i class="tx-led is-cyan" id="led-cam"></i></span>
+            <span class="tx-sw-socket"><span class="tx-sw-bat"></span></span>
+            <span class="tx-sw-val" id="lbl-cam">FPV</span>
+          </button>
+
+          <!-- SE: 2-Pos GCS Map Toggle Switch -->
+          <button id="sw-gcs" type="button" class="tx-switch" data-pos="2" title="拨杆 SE: 开关 GCS 航线地面站 (G)">
+            <span class="tx-sw-id">SE <i class="tx-led is-green" id="led-gcs"></i></span>
+            <span class="tx-sw-socket"><span class="tx-sw-bat"></span></span>
+            <span class="tx-sw-val" id="lbl-gcs">GCS ON</span>
+          </button>
+
+          <!-- SF: 2-Pos Sound Toggle Switch -->
+          <button id="sw-sound" type="button" class="tx-switch" data-pos="0" title="拨杆 SF: 开关电机音效">
+            <span class="tx-sw-id">SF <i class="tx-led" id="led-sound"></i></span>
+            <span class="tx-sw-socket"><span class="tx-sw-bat"></span></span>
+            <span class="tx-sw-val" id="lbl-sound">静音</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Lower Main Deck: Left CNC Gimbal | Center Live LCD Telemetry Screen | Right CNC Gimbal -->
+      <div class="tx-main-deck">
+        <!-- Left Gimbal (Mode 2: Throttle / Yaw) -->
+        <div class="tx-gimbal-pod">
+          <div class="tx-gimbal-bezel">
+            <div id="stick-left" class="stick-well" role="slider" aria-label="左摇杆 油门与偏航">
+              <div class="stick-crosshair-h"></div>
+              <div class="stick-crosshair-v"></div>
+              <div id="puck-left" class="stick-puck"></div>
+            </div>
+          </div>
+          <span class="tx-gimbal-lbl">THR 油门 · YAW 偏航 (WASD)</span>
+        </div>
+
+        <!-- Center Backlit LCD Telemetry Display + Tactile Push Buttons -->
+        <div class="tx-center-console">
+          <div class="tx-lcd-bezel">
+            <div class="tx-lcd-screen" id="tx-lcd">
+              <div class="lcd-topbar">
+                <span id="lcd-model" class="lcd-model">5" FREESTYLE</span>
+                <span id="lcd-arm" class="lcd-badge is-armed">ARM</span>
+                <span id="lcd-mode" class="lcd-badge">ANGLE</span>
+                <span id="lcd-batt" class="lcd-batt">25.2V</span>
+                <span id="lcd-rssi" class="lcd-rssi">50M</span>
+              </div>
+              <div class="lcd-grid">
+                <div class="lcd-cell"><span class="lcd-k">SPD</span><span id="lcd-spd" class="lcd-v">0 km/h</span></div>
+                <div class="lcd-cell"><span class="lcd-k">AGL</span><span id="lcd-agl" class="lcd-v">0.0 m</span></div>
+                <div class="lcd-cell"><span class="lcd-k">V/S</span><span id="lcd-vs" class="lcd-v">+0.0</span></div>
+                <div class="lcd-cell"><span class="lcd-k">THR</span><span id="lcd-thr" class="lcd-v">0%</span></div>
+                <div class="lcd-cell"><span class="lcd-k">HDG</span><span id="lcd-hdg" class="lcd-v">000°</span></div>
+                <div class="lcd-cell"><span class="lcd-k">AIR</span><span id="lcd-air" class="lcd-v">5 机巡航</span></div>
+              </div>
+              <div class="lcd-bottom">
+                <div class="lcd-ch-bars" aria-label="四通道实时输出">
+                  <div class="lcd-ch"><span>T</span><div class="lcd-bar"><i id="bar-t"></i></div></div>
+                  <div class="lcd-ch"><span>Y</span><div class="lcd-bar"><i id="bar-y"></i></div></div>
+                  <div class="lcd-ch"><span>P</span><div class="lcd-bar"><i id="bar-p"></i></div></div>
+                  <div class="lcd-ch"><span>R</span><div class="lcd-bar"><i id="bar-r"></i></div></div>
+                </div>
+                <div class="lcd-att" id="lcd-att">P:+0° R:+0°</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tx-btn-row">
+            <button id="btn-reset" type="button" class="tx-push-btn" title="复位起飞 (R)"><i></i>RST 复位</button>
+            <button id="btn-recover-tx" type="button" class="tx-push-btn" title="空中一键回正 (T)"><i></i>LVL 回正</button>
+            <button id="btn-tuning" type="button" class="tx-push-btn" title="飞控调参与快捷键"><i></i>SYS 调参</button>
+          </div>
+        </div>
+
+        <!-- Right Gimbal (Mode 2: Pitch / Roll) -->
+        <div class="tx-gimbal-pod">
+          <div class="tx-gimbal-bezel">
+            <div id="stick-right" class="stick-well" role="slider" aria-label="右摇杆 俯仰与横滚">
+              <div class="stick-crosshair-h"></div>
+              <div class="stick-crosshair-v"></div>
+              <div id="puck-right" class="stick-puck"></div>
+            </div>
+          </div>
+          <span class="tx-gimbal-lbl">PITCH 俯仰 · ROLL 横滚 (↑↓←→)</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="./world.js"></script>
+  <script src="./physics.js"></script>
+  <script src="./audio.js"></script>
+  <script src="./drone_model.js"></script>
+  <script src="./assets_model.js"></script>
+  <script src="./renderer.js"></script>
+  <script src="./gcs.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
